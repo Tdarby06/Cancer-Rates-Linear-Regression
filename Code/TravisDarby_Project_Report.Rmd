@@ -1,0 +1,754 @@
+---
+title: "Travis Darby Linear Models Project - Final Report"
+output:
+  html_document:
+    toc: true
+    df_print: paged
+---
+
+# Introduction
+
+This project intends to create a model that could help explain what factors might lead to cancer deaths. To do this, we will look at a dataset which contains data for counties in the primary 50 states in the United States. For every county, the dataset includes variables such as cancer diagnosis rates, population information, income, age, education levels, family sizes, marriage rates, insurance coverage, and employment rates. To do this we will look to out infatuation, and domain experience in the health field to find variables that can help explain the death rate
+
+This report will walk through the process that was taken to make an effective and explanatory model. To do this the dataset must first be analyzed. Then variables will be selected as predictors and used in an initial model. The model will be examined to determine what predictors should stay and what should be removed. The model will be checked to make sure it meets all assumptions and can be used to make statistical inferences. The model will be finalized and inferences will be conducted, assuming the model assumptions are met.
+
+
+
+```{r, include=FALSE, message=FALSE}
+#library imports
+library(tidyverse)
+#library(patchwork)
+library(gridExtra)
+
+#importing the data
+df <- read_csv("../Project_Data/DS64510_Project_Data.csv")
+
+#viewing the data
+glimpse(df)
+```
+
+# Step 1 - Dataset Analysis
+
+```{r, echo=FALSE, include=FALSE}
+#determining which variables have missing data and how much
+sapply(df, function(x) sum(is.na(x)))
+```
+
+Plotting the distribution of the Death rate variable
+```{r, message=FALSE, echo=FALSE}
+#viewing the distribution of the Target Death Rate variable 
+df %>% ggplot(aes(TARGET_deathRate)) + geom_histogram(color='black', fill='gray') + 
+  labs(title = 'Histogram of Death Rate', 
+       x = 'Death Rate',
+       y = 'Frequency') +
+  theme(plot.title = element_text(size = 16, face = 'bold'))
+```
+
+After looking at the distribution we can see most of the counties have death rates per capita around 175. Because of the size of the datasest the variable is normally distributed. Looking specifically we see the average death rate below:
+```{r, echo=FALSE}
+mean(df$TARGET_deathRate)
+```
+
+
+```{r,message=FALSE, echo=FALSE}
+#plot to show top 25 highest cancer death rates
+top_25_deathRate_plot <- df %>% select(Geography, TARGET_deathRate) %>% 
+  arrange(desc(TARGET_deathRate)) %>% #arrange df by descending
+  top_n(25) %>% #limit to top 25 highest
+  ggplot(aes(x= reorder(Geography, -TARGET_deathRate), y=TARGET_deathRate)) + 
+  geom_bar(stat='identity') + #use target_death Rate as value counts
+  theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
+  labs(title = 'Top 25 County Death Rates',
+       y = 'deathRate',
+       x = 'US County')
+
+#plot to show bottom 25 cancer death rates
+bottom_25_deathRate_plot <- df %>% select(Geography, TARGET_deathRate) %>% 
+  arrange(desc(TARGET_deathRate)) %>% #arrange sf by descending
+  top_n(-25) %>% #limit to bottom 25 lowest
+  ggplot(aes(x= reorder(Geography, -TARGET_deathRate), y=TARGET_deathRate)) + 
+  geom_bar(stat='identity') + #use target_deathRate as value counts
+  theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
+  labs(title = 'Bottom 25 County Death Rates',
+       y = 'deathRate',
+       x = 'US County')
+
+
+grid.arrange(top_25_deathRate_plot, bottom_25_deathRate_plot, ncol=2)
+```
+
+We can see the hugest death rates for counties is over 300 per capita of 100,000 and the lowest is around 60 per capita. We can also see a summary of the deathrate for easier viewing.
+```{r, echo=FALSE}
+summary(df$TARGET_deathRate)
+```
+
+## Varaible selection:
+
+Initially, I will explore the following variables in order to put them in to a model in future steps:
+
+-   **avgAnnCount** - Mean number of reported cases of cancer diagnosed annually
+-   **IncidenceRate** - Mean per capita (100,000) cancer diagnoses
+-   **MedianIncome** - Median income per county
+-   **MedianAge** - Median age of county residents 
+-   **studyPerCap** - Per capita number of cancer-related clinical trials per county 
+-   **PctHS25_Over** - Percent of county residents ages 25 and over highest education attained: high school diploma
+-   **PctPrivateCoverage** - Percent of county residents with private health coverage
+-   **PctPublicCoverage** - Percent of county residents with government-provided health coverage
+
+These variables look to be the most promising. After spending nearly a decade working in the insurance industry, with some time spent selling heath insurance products, the variables should hopefully provide a good explanation of death rate variable.
+
+
+Lets look at six out of the eight variables plotted against Death Rate
+```{r, echo=FALSE}
+
+#plot to create AvgAnnCount variable plotted against death rate
+avgAnnCount_plot <- df %>% ggplot(aes(x=avgAnnCount, y=TARGET_deathRate)) + geom_point() + 
+  labs(title = "deathRate vs. AvgAnnCount", y = "deathRate") +
+  theme(plot.title = element_text(size=14),
+        axis.title.y = element_text(size=12),
+        axis.title.x = element_text(size=12))
+
+#plot to create IncidentRate variable plotted against death rate
+incidentRate_plot <- df %>% ggplot(aes(x=incidenceRate, y= TARGET_deathRate)) + geom_point() + 
+  labs(title = "deathRate vs. IncidentRate", y = "deathRate") +
+  theme(plot.title = element_text(size=14),
+        axis.title.y = element_text(size=12),
+        axis.title.x = element_text(size=12))
+
+#plot to create MedianIncome variable plotted against death rate
+medIncome_plot <- df %>% ggplot(aes(x=medIncome, y=TARGET_deathRate)) + geom_point() + 
+  labs(title = "deathRate vs. MedianIncome", y = "deathRate") +
+  theme(plot.title = element_text(size=14),
+        axis.title.y = element_text(size=12),
+        axis.title.x = element_text(size=12))
+
+#plot to create MedianAge variable plotted against death rate
+MedianAge_plot <- df %>% ggplot(aes(x=MedianAge, y=TARGET_deathRate)) + geom_point() + 
+  labs(title = "deathRate vs. MedianAge", y = "deathRate") +
+  theme(plot.title = element_text(size=14),
+        axis.title.y = element_text(size=12),
+        axis.title.x = element_text(size=12))
+
+#plot to create studyPerCap variable plotted against death rate
+studyPerCap <- df %>% ggplot(aes(x=studyPerCap, y=TARGET_deathRate)) + geom_point() + 
+  labs(title = "deathRate vs. studyPerCap", y = "deathRate") +
+  theme(plot.title = element_text(size=14),
+        axis.title.y = element_text(size=12),
+        axis.title.x = element_text(size=12))
+
+#plot to create PctHs25_Over variable plotted against death rate
+PctHS25_Over_plot <- df %>% ggplot(aes(x=PctHS25_Over, y=TARGET_deathRate)) + geom_point() + 
+  labs(title = "deathRate vs. PctHs25_Over", y = "deathRate") +
+  theme(plot.title = element_text(size=14),
+        axis.title.y = element_text(size=12),
+        axis.title.x = element_text(size=12))
+
+#Arranging all the plots together for convenience 
+grid.arrange(avgAnnCount_plot, incidentRate_plot, medIncome_plot, MedianAge_plot, studyPerCap, PctHS25_Over_plot, ncol = 2)
+```
+
+Looking at all of the plots generated, it looks like three of the six will have some correlation with the death rate. We should examine them all closer to see if this is the case.
+
+## AvgAnnCount
+
+```{r, echo=FALSE}
+avgAnnCount_plot
+```
+
+
+There does not appear to be a positive or negative relationship, the data looks to be centered around 200 for the deathrate with values $\pm$ 100 on the y-axis. There could be some outliers, which we will examine more specifically later.
+
+The statistical summary of the avgAnnCount follows:
+```{r, echo=FALSE}
+#overall summary of the the variable
+summary(df$avgAnnCount)
+```
+
+Due to how spread out avgAnnCount is, we should limit some of what could be outliers
+```{r, echo=FALSE}
+#plot limiting the range of the x-axis of avgAnnCount to 15000
+avgAnnCount_plot_lt_15000 <- df %>% filter(avgAnnCount <15000) %>% 
+  ggplot(aes(x=avgAnnCount, y=TARGET_deathRate)) + geom_point(alpha=.4) + 
+  labs(title = "deathRate vs. AvgAnnCount (<15k)", y = "deathRate") +
+  theme(plot.title = element_text(size=12),
+        axis.title.y = element_text(size=10),
+        axis.title.x = element_text(size=10))
+
+#plot limiting the range of the x-axis of avgAnnCount to 5000
+avgAnnCount_plot_lt_5000 <- df %>% filter(avgAnnCount <5000) %>% 
+  ggplot(aes(x=avgAnnCount, y=TARGET_deathRate)) + geom_point(alpha=.4) + 
+  labs(title = "deathRate vs. AvgAnnCount (<5k)", y = "deathRate") +
+  theme(plot.title = element_text(size=12),
+        axis.title.y = element_text(size=10),
+        axis.title.x = element_text(size=10))
+
+#plot limiting the range of the x-axis of avgAnnCount to 200
+avgAnnCount_plot_lt_200 <- df %>% filter(avgAnnCount <200) %>% 
+  ggplot(aes(x=avgAnnCount, y=TARGET_deathRate)) + geom_point(alpha=.4) + 
+  labs(title = "deathRate vs. AvgAnnCount (<200)", y = "deathRate") +
+  theme(plot.title = element_text(size=12),
+        axis.title.y = element_text(size=10),
+        axis.title.x = element_text(size=10))
+
+#arranging the plots together
+grid.arrange(avgAnnCount_plot_lt_15000, avgAnnCount_plot_lt_5000, avgAnnCount_plot_lt_200, ncol=2,top='avgAnnCount Filtered Comparison')
+```
+
+Looking at the limited plots there still is no trend distinguishable indicating any correlation between angAnnCount and Death rate.
+
+Looking at the proportion and count of the number of counties and their average annual count of cancer diagnosis.
+```{r, echo=FALSE}
+#creating a small overview of the data to look at the count and proportion of number of counties and their rates of cancer diagnosis.
+df %>% mutate(category =case_when(avgAnnCount > 10000 ~ "above 10k",
+                                  avgAnnCount <=10000 & avgAnnCount > 5000 ~ "btwn 10k and 5k",
+                                  avgAnnCount <= 5000 & avgAnnCount > 200 ~ "btwn 5k and 200",
+                                  avgAnnCount <= 200 ~ "below 200")) %>% 
+  group_by(category) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count)) %>%
+  mutate(proportion = case_when(category == "below 200" ~ count/length(df),
+                                category == "btwn 5k and 200"	~ count/length(df),			
+                                category == "btwn 10k and 5k"	~ count/length(df),
+                                category == "above 10k" ~ count/length(df)))
+```
+
+
+
+## Incidence Rate
+
+```{r, echo=FALSE}
+incidentRate_plot
+```
+
+There appears to be a strong positive relationship between IncidenceRate and Deathrate. There are a few outliers, possibly. Again we will examine this more thoroughly later.
+
+Statistical summary of the Incidence rate
+```{r, echo=FALSE}
+summary(df$incidenceRate)
+```
+
+There is a large spread amongst the smallest and largest rate reported.
+
+
+## Median Income
+
+```{r, echo=FALSE}
+medIncome_plot
+```
+
+There looks to be a moderate negative relationship between Median Income and Death Rate. Possibly a few outliers, if any. 
+
+```{r}
+summary(df$medIncome)
+```
+Again there is a large disparity between the highest and lowest median incomes reported by all the counties.
+
+## Median age
+
+```{r,echo=FALSE}
+MedianAge_plot
+```
+
+It is difficult to see any relationship between MedianAge and Deathrate with the values in Median Age, as there are 20 or more that seem to be incorrect (median ages of individuals 350 years+)
+```{r, echo=FALSE}
+summary(df$MedianAge)
+```
+
+It would be safe to assume that these are entry errors, but we will leave them alone for now but filter them out for purpose of looking for any trends in death rate and Median Age.
+
+To get a better look to see if there is any trend when excluding the outliers we will filter out values less than 250:
+```{r, echo=FALSE}
+#plotting MedianAge and Deathrate filtering out the values that appear to be incorrectly entered
+df %>% filter(MedianAge < 250) %>% 
+  ggplot(aes(x=MedianAge, y=TARGET_deathRate)) + geom_point() + 
+  ggtitle("Deathrate compared to MedianAge (MedianAge Filtered < 250)")
+```
+
+With a better look at the data between MedianAge and Deathrate, there does not appear to be a relationship.
+
+
+## Study Per Capita
+
+```{r, echo=FALSE}
+studyPerCap
+```
+
+There does not appear to be much of a trend here. 
+
+Looking at the statistical summary of studyPerCap:  
+```{r, echo=FALSE}
+summary(df$studyPerCap)
+```
+From the statistical summary, we can see that most of the values are centered around 0. We will need to zoom in on the plot to make sure there is not any trend.
+
+
+```{r, echo=FALSE}
+#plot to filter studyPerCap to 2500
+studyPerCap_plot_lt_2500 <- df %>% filter(studyPerCap < 2500) %>%
+  ggplot(aes(x=studyPerCap, y=TARGET_deathRate)) + geom_point(alpha=0.4)
+
+#plot to filter studyPerCap to 500
+studyPerCap_plot_lt_500 <- df %>% filter(studyPerCap < 500) %>%
+  ggplot(aes(x=studyPerCap, y=TARGET_deathRate)) + geom_point(alpha=0.4)
+
+#arranging the plots on a grid
+grid.arrange(studyPerCap_plot_lt_2500, studyPerCap_plot_lt_500)
+```
+
+After seeing how many observations appear at 0, it would be helpful to understand how many instances of 0 studies in a county there are:
+```{r, message=FALSE, echo=FALSE}
+#viewing the distribution of the Study Per Capita
+df %>% ggplot(aes(studyPerCap)) + geom_histogram(color='black', fill='gray') + 
+  labs(title = 'Histogram of Study Per Capita', 
+       x = 'Study Per Capita',
+       y = 'Frequency') +
+  theme(plot.title = element_text(size = 16, face = 'bold'))
+```
+
+The plot shows almost 2500 counties do not have any or very few studies being done locally. 
+
+A small table showing the specific counts and proportions
+```{r, echo=FALSE}
+#filtering the data base to ranges and counting the number within those ranges to see how many studies are being done in the counties
+df %>% mutate(category =case_when(studyPerCap > 2500 ~ "above 2.5k",
+                                  studyPerCap <=2500 & studyPerCap > 500 ~ "btwn 2.5k and 500",
+                                  studyPerCap <= 500 & studyPerCap > 100 ~ "btwn 500 and 100",
+                                  studyPerCap <= 100 & studyPerCap > 0 ~ "btwn 100 and 0",
+                                  studyPerCap == 0 ~ "equal to 0")) %>% 
+  group_by(category) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count)) %>%
+  mutate(proportion = case_when(category == "equal to 0" ~ count/length(df),
+                                category == "btwn 500 and 100"	~ count/length(df),			
+                                category == "btwn 100 and 0"	~ count/length(df),
+                                category == "btwn 2.5k and 500" ~ count/length(df),
+                                category == "above 2.5k" ~ count/length(df)))
+```
+Similar to the plot we 
+
+
+## Percent County Residents Whose Highest Education is High School
+
+```{r, echo=FALSE}
+PctHS25_Over_plot <- df %>% ggplot(aes(x=PctHS25_Over, y=TARGET_deathRate)) + geom_point() + 
+  labs(title = "deathRate vs. PctHs25_Over", y = "deathRate") +
+  theme(plot.title = element_text(size=14),
+        axis.title.y = element_text(size=12),
+        axis.title.x = element_text(size=12))
+
+PctHS25_Over_plot
+```
+
+There appears to be a slight positive trend between those who only who only finished high school and the cancer death rates.
+
+
+## Analysis Summary
+
+Of the 6 variables analyzed 3 of the 6 looked to have no correlation between them and our target variable Death Rate. The selection process might have been a bit naive as they were based not on analysis, but preconceived ideas. If this were to be repeated, it certainly seems possible that there could be better variables selected. 
+
+# Step 2 - Creating the Initial Model
+
+We will Fit a linear model with deathRate as the target variable and the variables chosen previously as the predictors.
+
+#### model1 summary
+
+```{r, echo=FALSE}
+#fitting the model with the above selected predictors
+model1 <- lm(TARGET_deathRate~avgAnnCount+incidenceRate+medIncome+MedianAge+
+                      studyPerCap+PctHS25_Over+PctPrivateCoverage+PctPublicCoverage, data = df)
+
+summary(model1)
+```
+
+
+-   The following variables, using an alpha of .05, are statistically significant:
+
+    -   avgAnnCount
+    -   incidenceRate
+    -   medIncome
+    -   PctHS25_Over
+    -   PctPrivateCoverage
+
+-   The initial model has an $R^2$ value of .4623.
+
+-   5/8 of the variables selected were statistically significant. The most statistically insignificant variable was studyPerCap. I assumed this might be the most significant as it could indicate counties were research was being done for high levels of cancer rates and help the model with its predictions.
+
+I also assumed the $R^2$ value would be higher with 8 variables selected.
+
+# Step 3
+
+
+
+In this step we will apply two different automated methods of predictor selectors on the dataset:
+
+-   Both methods take the previously created model, however they aim to find the same result, a smaller more efficient model by removing unnecessary predictors by different methods.
+
+    - The `fastbw()` method we will use, uses each predictors p-value, whether it is statiscially significant or not, and removes predictors above a specific value of $\alpha$ that we set. In this case we will use $\alpha = 0.05$
+
+    -   The `stepAIC()` method will run through several iterations. During each iteration, it will calculate the total AIC score for the model predictor as if that particular model predictor had been removed. The point being to find the lowest AIC score possible. Each itteration a model predictor will be eliminated until removing predictors no longer reduces the AIC score.
+
+After running these two methods we will examine what predictors each method removed and make a decision on what model to move forward with.
+
+    - For each procedure, submit your comment on the variables that the procedure removed from or retained in your model. Think about the following questions to guide your comments:
+
+        - Does it match your intuition?
+        
+        - How do the automatically selected models compare to your model from Step 2?
+        
+        - Which model will you choose to proceed with?
+
+Based on MedianAge, studyPerCap, PctPublicCoverage being statistically insignificant, I anticipate the automated selection process will suggest them being removed.
+
+### fastbw()
+
+Running the `fastbw()` method gives us the following output:
+```{r, message=FALSE, echo=FALSE}
+#library for 
+library(rms)
+
+#fitting a OLS model in order to used fastbw()
+model_ols <- ols(TARGET_deathRate~avgAnnCount+incidenceRate+medIncome+MedianAge+
+                      studyPerCap+PctHS25_Over+PctPrivateCoverage+PctPublicCoverage, data = df)
+
+#running fastbw() to use the p-value of 0.05 to conduct selection
+fastbw(model_ols, rule='p', sls = 0.05)
+```
+the three predictors initially believed to be the ones removed are indicated by `fastbw()` as having p-values above our indicated $\alpha$. Estimated p-values for remaining predictors can be seen.
+
+
+Creating a model with suggested predictors from `fastbw()`:
+```{r, echo=FALSE}
+#fitting the fastbw() suggested model
+model_fastbw_selection <- lm(TARGET_deathRate~avgAnnCount+incidenceRate+medIncome+
+                     PctHS25_Over+PctPrivateCoverage,data=df)
+summary(model_fastbw_selection)
+```
+The `fastbw()` model has an $R^2$ value of .4618 which is just .0005 smaller than the original model, with 3 less variables. The originally selected model and the `fastbw()` model have identical $R^2_a$ values
+
+### AIC 
+Running the `AIC` method gives us the following output:
+```{r, message=FALSE, echo=FALSE}
+#loading mass library
+library(MASS)
+
+#running the AIC selection process
+model_aic <- stepAIC(model1)
+model_aic$anova
+```
+The `stepAIC()` selection removed studyPerCap in the first iteration, and medianAge in the second iteration. On the third pass through there was not a variable that could be removed that would lower the AIC score.
+
+The AIC selection process removed two of the three variables I thought would be removed. The `stepAIC()` process did not remove the Pct Public Coverage variable.
+
+Creating a new model with the AIC selection suggestions yields the following output:
+```{r, echo=FALSE}
+#creating the LM model from the AIC selected variables
+model_aic_selection <- lm(TARGET_deathRate~avgAnnCount+incidenceRate+medIncome+
+                            PctHS25_Over+PctPrivateCoverage+PctPublicCoverage, data=df)
+summary(model_aic_selection)
+```
+The `stepAIC()` model has a .0002 $R^2$ value compared to the original model, but it has a higher $R^2_a$ of .0002.
+
+The AIC selection did not remove PctPublicCoverage. It had a p-value of .16 in the original model, but with the other two predictors removed it dropped to .15, still 3x higher than the selected $\alpha$ value. I assumed Everything that was statistically insignificant would also lead to a large enough AIC reduction when removed from the model.
+
+Moving forward I don't believe leaving Pct Public Coverage variable in the model adds much. I will use the `fastbw()` selected model going forward, which has the following variables:
+
+-   avgAnnCount
+-   incidenceRate
+-   medIncome
+-   PctHS25_Over
+-   PctPrivateCoverage
+
+# Step 4
+
+To check the mathematical assumptions of the model we will perform diagnostics on the model chosen in Step Three, in this case the `fastbw()` selected model. Checking the assumptions relies on using the model's residuals, or the difference between the observed, or actual, value and the value that the model predicts.
+
+### Heteroscedasticity
+
+To check for Heteroscedasicity within the model we will look at the residuals. Specifically we will look to make sure there is constant variance between the residual points.
+
+First we will conduct the Breush-Pagan test. The statistical test tests for the following:
+
+$H_0: \text{homoscedasticity}$
+
+$H_a: \text{heterocedasticity}$
+
+```{r, message=FALSE, echo=FALSE}
+library(lmtest)
+
+#running the bptest() to look at the constant variance
+bptest(model_fastbw_selection)
+```
+Looking just at the bptest() we would conclude that the model assumptions are not met and we can reject the null and state there is not constant variance.
+
+The other test we conduct to check for heteroscedasticity is by plotting the model's fitted values compared against the model's residuals.
+
+```{r, echo=FALSE}
+plot(model_fastbw_selection$fitted.values, model_fastbw_selection$residuals)
+```
+
+The Fitted values vs. residuals plot looks to be circular and no real trends appearing in the plot, this contradicts the `bptest()` and would indicate the constant variance should be upheld. The reason for this is that the hypothesis test can be impacted by larger datasets. The 3047 observations can certainly do this. Thus, we can confidently say that the model's assumption of constant variance is upheld. 
+
+### Independence
+
+To check for independence in the residuals we will also look at the residuals compared to the fitted values.
+
+First we will conduct the Durban-Watson test which conducts the following hypothesis test:
+
+$H_0: \text{residuals are independent}$
+
+$H_a: \text{residuals are not independent}$
+
+```{r,echo=FALSE}
+#running the dwtest() to look at if there is independence within the residuals
+dwtest(model_fastbw_selection)
+```
+The `dwtest()` has given us a p-value to say we can reject the null and state there is not independence within the residuals.
+    
+-   Similar to the Breusch-Pagan Test, the statistical test can be influenced by large datasets.
+
+We move to the plot.
+
+```{r, echo=FALSE}
+#plotting the residuals vs the fitted values
+plot(model_fastbw_selection$fitted.values, model_fastbw_selection$residuals)
+```
+
+As it is the same plot as before, we not there is no trend, indicating there is no correlation between the residuals and the fitted values. Thus we can confidently say that the model's assumption of independence is upheld.
+
+### Normality
+
+To check if the residuals are normal distributed we will conduct the Shapiro-Wilks Test, which conducts the following hypothesis test:
+
+$H_0: \text{residuals are normal}$
+
+$H_a: \text{residuals are NOT normal}$
+
+```{r, echo=FALSE}
+#running the shapiro.test() to look at if there is normality within the residuals
+shapiro.test(model_fastbw_selection$residuals)
+```
+The `shapiro.test()` p-value would indicate that we have evidence to reject the null and state there is not normality in the residuals. Again, similar to the above statistical tests, the large dataset is influencing the `shapiro.test()`. We will turn to the Q-Q plot. Which will plot the model's residuals against a straight line
+```{r, echo=FALSE}
+#plotting the residuals against a straight line 
+qqnorm(model_fastbw_selection$residuals)
+qqline(model_fastbw_selection$residuals)
+```
+
+The Q-Q plot does not have any gross derivations from normality within the residuals and the model assumption should be upheld.
+
+### There is a linear association between x and y
+
+To conduct this test, we will use the Lagged residual plot to make sure there is trend between the residuals and a lagged version of themselves. 
+
+```{r, echo=FALSE}
+#plotting the lagged residuals plot
+n <- length(residuals(model_fastbw_selection))
+plot(tail(residuals(model_fastbw_selection),n-1) ~ head(residuals(model_fastbw_selection),n-1),
+     xlab=expression(hat(epsilon)[i]),ylab=expression(hat(epsilon)[i+1]))
+abline(h=0,v=0,col=grey(0.75))
+```
+
+Lagged residual plot does not have any positive or negative trends, indicating there is not be any serial correlation. This could indicate an issue with the model assumptions
+
+# Step 5
+
+We need to check to see if there are any particular observations in the dataset that are influencing the model to the point where the linear equation is drawn to those points. We will examine this by looking to see if there are any outliers, by looking for standard residuals and, and we will look to see if there are influential by using a method called Cooks distance.
+
+### Standard Residuals
+To look at the standard residuals, we must use a function called `rstandard()` which will calculate the values of each residual in the model. Values over |3| are considered to be an outlier. We will put these values into a dataframe for easy manipulation.
+
+The resulting first 6 values of the standard residuals dataframe can be seen below:
+```{r, echo=FALSE}
+#creating dataframe with standardized residuals
+standard_resid <- data.frame(round(rstandard(model_fastbw_selection),4))
+
+#looking at first 5
+head(standard_resid)
+```
+
+We now will filter to see if there are any values that would be considered an outlier
+```{r, echo=FALSE}
+#looking to see if there are values that would be considered outliers (greater than 3)
+which(abs(standard_resid$round.rstandard.model_fastbw_selection...4.) > 3)
+
+```
+There are 25 total points that would be considered outliers, or .82% of the total dataframe.
+
+Checking the values
+```{r, echo=FALSE}
+#seeing what those values are
+standard_resid[which(abs(standard_resid$round.rstandard.model_fastbw_selection...4.) > 3),]
+```
+
+ Some of these values have sizable standardized residual values. But we should look to see with cooks distance if any of them have leverage and affect the model.
+
+### Cooks Distance
+Using cooks distance we have two options to determine if a point has influence. If the value calculated for the model residuals are above 1 we would say they are influential.
+
+Using the `cooks.distance()` function on the model we will create a vector of the cooks distance values. Running that and a line to code to see what the highest value's index is and what the value is:
+```{r, echo=FALSE}
+#calculating the cooks distance values for the residuals
+cooks_distance_values <- cooks.distance(model_fastbw_selection)
+
+#seeing which value is the largest
+cooks_distance_values[which.max(cooks_distance_values)]
+
+```
+A rule of thumb of leverage would be if the cooks distance is over 1. The largest value of the distances is no where near 1.
+
+As another check we can use the F-threshold, which takes the 50th percentile of the F-Distribution using the number of observations in the model and the number of predictors in the model. The value can be seen below.
+```{r, echo=FALSE}
+#finding n and p
+n <- dim(model.matrix(model_fastbw_selection))[1]
+p <- dim(model.matrix(model_fastbw_selection))[2]
+#creating the fraction
+num_df <- p
+den_df <- n-p
+#creating the 50th percentile threshold
+F_thresh <- qf(0.5,num_df,den_df)
+F_thresh
+```
+
+Now we can see if there are any cooks distances above the F-threshold:
+```{r,echo=FALSE}
+#checking to see if there are any values above the f_threshold
+which(cooks.distance(model_fastbw_selection)>F_thresh)
+```
+
+Since there are no values above the 50th percentile threshold of the F Distribution, we can say that while there are some values that could be considered outliers, there are none that appear to have any influence/leverage and are affecting the model.
+
+# Step 6
+
+We will investigate if a model transformation might correct the model if mathematical assumptions of the model were not met in Step Four.
+
+```{r, message=FALSE, echo=FALSE}
+#library import for boxcox
+require(MASS)
+
+#applying boxcox to the fastbw_model_selection
+bc_fastbw_results <- boxcox(model_fastbw_selection, data=df, plotit = T)
+
+```
+
+The max value looks to be close to .75, but not close enough to 1 to say there would not be any benefit from a transformation.
+
+```{r, echo=FALSE}
+#finding the max value of lambda
+lambda <- bc_fastbw_results$x[which.max(bc_fastbw_results$y)]
+lambda
+```
+
+Boxcox method has suggested a value of .7879 for $\lambda$
+
+Now creating a model with a Boxcox lambda transformation applied to the response variable, deathRate. We can see the model summary for the transformed model below:
+```{r, echo=FALSE}
+#fitting a new model with the value of lambda transforming the response variable
+fbw_bc_model <- lm((TARGET_deathRate)^lambda~avgAnnCount+incidenceRate+medIncome+
+                     PctHS25_Over+PctPrivateCoverage,data=df)
+
+summary(fbw_bc_model)
+```
+The Boxcox transformed model have slightly lower $R^2$ and $R^2_a$ values.
+
+Now we will plot the Boxcox transformed model's fitted values against its residuals to see if there was any improvement,
+```{r, echo=FALSE}
+#plotting the diagnostic plot
+plot(fbw_bc_model$fitted.values, fbw_bc_model$residuals)
+```
+
+There does not seem to by any change in the diagnostic plot from the original `fastbw_model_selection` and the transformed `fbw_bc` model. This appears to prove the model did already met the mathematical assumptions of a linear model.
+
+# Step 7
+
+We will report the final model and use it to perform inferences.
+
+-   First, we will look at model summary again, which was just the `fastbw()` model selection
+```{r, echo=FALSE}
+#showing the model summary for the fast_bw selected model
+summary(model_fastbw_selection)
+```
+Now we will look the parameter estimates and p-values for the final model:
+```{r, echo=FALSE, message=FALSE}
+#loading library that shows the desired table in the Rstudio IDE viewer window
+library(sjPlot)
+
+#showcasing the models parameters estimates and the p-values for each estimate
+tab_model(model_fastbw_selection, show.ci = F)
+```
+
+-   Report the $R^2$ for the model.
+
+```{r, echo=FALSE}
+#selecting the fast_bw's model R^2 value
+summary(model_fastbw_selection)$r.squared
+```
+
+Compute and report a 95% confidence interval for the slope of whichever predictor you feel is most important.
+-   We will compute the interval for the PctHS25_Over variable
+```{r, echo=FALSE}
+#computing a 95% confidence interval for the PctHS25Over variable
+0.9010 * c(-1,1) + qt(.975, 3041) * 0.06254
+```
+
+We are 95% confident that the slope for `PctHS25Over` is between -.778375 and 1.023625.
+
+-   Compute and report a 95% confidence interval for a prediction. In other words, choose particular values of your predictors that are meaningful (say, perhaps the median of each) and compute a 95% confidence interval for the predicted value of y at those values.
+
+
+```{r, include=FALSE}
+#finding the median values for all predictor variables in the model
+median(df$avgAnnCount)
+median(df$incidenceRate)
+median(df$medIncome)
+median(df$PctHS25_Over)
+median(df$PctPrivateCoverage)
+```
+We are computing the interval for the medians for each of the models predictors.
+-   avgAnnCount = 171
+-   incidenceRate = 453.55
+-   medIncome = 45207
+-   PctHS25_Over = 35.3
+-   PctPrivateCoverage = 65.1
+
+```{r, echo=FALSE}
+#taking a 95% confidence interval for the median values of all predictor variables
+predict(model_fastbw_selection, newdata = data.frame(avgAnnCount = median(df$avgAnnCount),
+                                                     incidenceRate = median(df$incidenceRate), 
+                                                     medIncome = median(df$medIncome),
+                                                     PctHS25_Over = median(df$PctHS25_Over),
+                                                     PctPrivateCoverage = median(df$PctPrivateCoverage)),
+        interval = "confidence")
+```
+
+We are 95% confident that a county's target_Deathrate who has an median avgAnnCount of 171, a median incidenceRate of 453.55, a median medIncome of 45207, a median PctHS25_Over of 35.3, and a median PctPrivateCoverage of 65.1 will lie in the range between 179.61 and 181.1846.
+
+-   Compute and report a 95% prediction interval for a particular observation. 
+
+We will use the following observation:
+```{r, echo=FALSE}
+#selecting random row from dataframe
+set.seed(1842)
+df %>% dplyr::select(TARGET_deathRate, avgAnnCount, incidenceRate, medIncome, PctHS25_Over, PctPrivateCoverage) %>% sample_n(1)
+```
+The prediction interval is as follows:
+```{r, echo=FALSE}
+#95 prediction interval for a specific observation in the dataset
+predict(model_fastbw_selection, newdata = data.frame(avgAnnCount = 155,
+                                                     incidenceRate = 467.1, 
+                                                     medIncome = 39303,
+                                                     PctHS25_Over = 39.8,
+                                                     PctPrivateCoverage = 59.8),
+        interval = "prediction", level = 0.95)
+```
+
+There is a 95% probability that the target_deathrate of a county with avgAnnCount of 155, incidenceRate of 467.1, medIncome of 39303, PctHS25_Over of 39.8, and PctPrivateCoverage of 59.8 will lie in the range between 153.15 and 233.08.
+
+# Conclusion
+
+The model itself, while being initially having some selection issues, the final selected model was able to explain 46.18% of the variation in the response variable Death rate. The final model equation was: 
+$$\hat{y} = 105.63 - 2.103e-04x_{avgAnnCount} + .23x_{incidenceRate} -4.568e-05x_{MedIncome}+.9x_{PctHS25Over}-0.85x_{PctPrivateCoverage}$$ 
+
+Showing that the most influential variables were dealing with education and insurance. More specifically we would expect for every 1 percent increase of total residents in a county that had a highest level of education being high school we expect the county's cancer death rate to increase .9 per capita of 100,000 residents. And for the Private insurance coverage, we would expect for every 1 percent of the total county residents that increased, we would expect the cancer death rate for the county to decrease by .85 per capita of 100,000 residents.
+
+While these might be some good insights, it would be worthwhile to investigate the other variables in the dataset more thoroughly. There were 22 other variables that could lead to a model that does a better job of explaining what factors could explain cancer death rates more thoroughly. 
+
