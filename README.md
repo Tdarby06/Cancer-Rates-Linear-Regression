@@ -1,4 +1,4 @@
-## Cancer-Rates-Linear-Regression
+## Cancer Rates: A Linear Regression Project
 
 This project intends to create a model that could help explain what factors might lead to cancer deaths. To do this, we will look at a dataset which contains data for counties in the primary 50 states in the United States. For every county, the dataset includes variables such as cancer diagnosis rates, population information, income, age, education levels, family sizes, marriage rates, insurance coverage, and employment rates. To do this we will look to out infatuation, and domain experience in the health field to find variables that can help explain the death rate
 
