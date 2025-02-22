@@ -1,5 +1,13 @@
 ## Cancer Rates: A Linear Regression Project
 
-This project intends to create a model that could help explain what factors might lead to cancer deaths. To do this, we will look at a dataset which contains data for counties in the primary 50 states in the United States. For every county, the dataset includes variables such as cancer diagnosis rates, population information, income, age, education levels, family sizes, marriage rates, insurance coverage, and employment rates. To do this we will look to out infatuation, and domain experience in the health field to find variables that can help explain the death rate
+This project intends to create a model that could help explain what factors might lead to cancer deaths in 3,047 counties across America. To do this, we will look at a dataset which contains data for counties in the primary 50 states in the United States. For every county, the dataset includes variables such as cancer diagnosis rates, population information, income, age, education levels, family sizes, marriage rates, insurance coverage, and employment rates. To do this we will look to out infatuation, and domain experience in the health field to find variables that can help explain the death rate.
 
 This report will walk through the process that was taken to make an effective and explanatory model. To do this the dataset must first be analyzed. Then variables will be selected as predictors and used in an initial model. The model will be examined to determine what predictors should stay and what should be removed. The model will be checked to make sure it meets all assumptions and can be used to make statistical inferences. The model will be finalized and inferences will be conducted, assuming the model assumptions are met.
+
+Overall the target variable `Target_deathRate` represents "Mean per capita (100,000) cancer mortalities"
+
+![image](https://github.com/user-attachments/assets/c87162a5-1112-4bd2-931d-2126ac223511)
+
+From the histogram we can see that `deathRates` is centered around 175 per 100k for each county. 
+
+From here variables are selected in order to see if they have an effect on `deathRate`
